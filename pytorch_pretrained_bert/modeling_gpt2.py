@@ -28,7 +28,7 @@ from io import open
 
 import torch
 import torch.nn as nn
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 from torch.nn.parameter import Parameter
 
 from .file_utils import cached_path, CONFIG_NAME, WEIGHTS_NAME
@@ -940,8 +940,12 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             losses.append(loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)))
         if mc_labels is not None:
-            loss_fct = CrossEntropyLoss()
-            losses.append(loss_fct(mc_logits.view(-1, mc_logits.size(-1)), mc_labels.view(-1)))
+            if mc_logits.size(1) == 1:
+                loss_fct = BCEWithLogitsLoss()
+                losses.append(loss_fct(mc_logits.view(-1, mc_logits.size(-1)), mc_labels.type(dtype=torch.float64)))
+            else:
+                loss_fct = CrossEntropyLoss()
+                losses.append(loss_fct(mc_logits.view(-1, mc_logits.size(-1)), mc_labels.view(-1)))
         if losses:
             return losses
         if self.transformer.output_attentions:
